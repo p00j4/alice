@@ -1,26 +1,30 @@
-import logging
 from alice.config.config_provider import ConfigProvider
 from alice.helper.common_utils import CommonUtils
+from alice.helper.log_utils import logger
 
 class Base(object):
-    API_START_PR = "https://api.github.com/repos/moengage/MoEngage/pulls/"
-    API_START_ISSUES = "https://api.github.com/repos/moengage/MoEngage/issues/"
-
+    pass
 
 class PushPayloadParser(Base):
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
 
     def __init__(self, request, payload):
         self.request = request
         self.payload = payload
         self.pr = payload["pull_request"]
-        print "****** REPO= ******",self.repo
+        logger.debug("Repo="+self.repo)
         self.config = ConfigProvider(self.repo)
 
     @property
     def repo(self):
         return self.payload["repository"]["name"]#self.data["head"]["repo"]["name"]
+
+    @property
+    def number(self):
+        return self.payload["number"]
+
+    @property
+    def opened_by(self):
+        return self.pr["user"]["login"]
 
     @property
     def merged_by(self):
@@ -35,24 +39,20 @@ class PushPayloadParser(Base):
         return self.pr["url"]
 
     @property
-    def by(self):
-        return self.pr["user"]["login"]
-
-    @property
     def is_merged(self):
         return self.pr["merged"]
 
     @property
+    def action(self):
+        return self.payload["action"]
+
+    @property
     def is_opened(self):
-        return self.pr["action"] == "opened"
+        return self.action == "opened"
 
     @property
     def is_reopened(self):
-        return self.pr["action"] == "reopened"
-
-    @property
-    def action(self):
-        return self.payload["action"]
+        return self.action == "reopened"
 
     @property
     def base_branch(self):
@@ -68,14 +68,21 @@ class PushPayloadParser(Base):
 
     @property
     def is_sensitive_branch(self):
-        return self.base_branch in self.config.sensitiveBranches()
+        return self.base_branch in self.config.sensitiveBranches
 
     @property
-    def merged_by_slack_nick(self):
+    def merged_by_slack(self):
         return CommonUtils.getSlackNicksFromGitNicks(self.merged_by)
 
     @property
-    def created_by_slack_nick(self):
-        return CommonUtils.getSlackNicksFromGitNicks(self.by)
+    def opened_by_slack(self):
+        return CommonUtils.getSlackNicksFromGitNicks(self.opened_by)
 
+    @property
+    def title(self):
+        return self.pr["title"]
+
+    @property
+    def description(self):
+        return self.pr["body"]
 
