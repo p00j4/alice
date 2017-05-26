@@ -88,4 +88,11 @@ class PushPayloadParser(Base):
     def description(self):
         return self.pr["body"]
 
+    @property
+    def status_url(self):
+        return self.pr["statuses_url"]
+
+    @property
+    def head_repo(self):
+        return self.pr["head"]["repo"]["ssh_url"]
 

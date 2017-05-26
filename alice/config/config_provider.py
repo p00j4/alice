@@ -29,6 +29,10 @@ class ConfigProvider(object):
         return self.config.get('tokens').get("slack")
 
     @property
+    def jenkinsToken(self):
+        return self.config.get('tokens').get("jenkins")
+
+    @property
     def is_debug(self):
         return self.config.get("debug", False)
 
@@ -168,3 +172,57 @@ class ConfigProvider(object):
     @property
     def timezone(self):
         return self.config.get("timezone", "")
+
+    @property
+    def ci(self):
+        if self.config.get("ci").get("enable"):
+            return self.config.get("ci")
+        return False
+
+    @property
+    def ci_repo_list(self):
+        if self.ci:
+            return self.ci.get("repositories", [])
+
+    @property
+    def ci_context(self):
+        if self.ci:
+            return self.ci.get("context")
+
+    @property
+    def ci_description(self):
+        if self.ci:
+            return self.ci.get("description")
+
+    @property
+    def ci_action_type(self):
+        if self.ci:
+            return self.ci.get("action_type")
+
+
+    @property
+    def ci_jenkins_domain(self):
+        if self.ci:
+            return self.ci.get("jenkins").get("domain")
+
+    @property
+    def ci_jenkins_username(self):
+        if self.ci:
+            return self.ci.get("jenkins").get("username")
+
+    @property
+    def ci_job_name(self):
+        if self.ci:
+            return self.ci.get("jenkins").get("job_name")
+
+    @property
+    def ci_file_types_list(self):
+        if self.ci:
+            return list(self.ci.get("file_types"))
+
+
+
+
+
+
+

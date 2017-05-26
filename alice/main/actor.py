@@ -16,6 +16,9 @@ from datetime import datetime
 import time
 import pytz
 import shutil
+from alice.helper.jenkins_helper import JenkinsHelper
+
+
 
 class Actor(Base):
     
@@ -23,6 +26,7 @@ class Actor(Base):
         self.pr = pr
         self.github = GithubHelper(self.pr)
         self.slack = SlackHelper(self.pr.config)
+        self.jenkins = JenkinsHelper(self.pr)
         self.change_requires_product_plus1 = False
         self.is_product_plus1 = False
         self.sensitive_file_touched = {}
@@ -61,7 +65,7 @@ class Actor(Base):
         change_requires_product_plus1 = False
         sensitive_file_touched = {}
         try:
-            files_contents = self.github.get_files()
+            files_contents = self.github.get_files_modified()
             LOG.info("**** Reading files ****")
             for item in files_contents:
                 file_path = item["filename"]
@@ -361,7 +365,6 @@ class Actor(Base):
             self.slack.postToSlack(channel=self.pr.config.alertChannelName, msg=msg)
             self.clean_up_for_next_cycle()
 
-
     def clean_up_for_next_cycle(self):
         """ backup & clean-up file for next release """
         shutil.copy(self.pr.config.releaseItemsFilePath, self.pr.config.backupFilesPath + '_'
@@ -370,5 +373,40 @@ class Actor(Base):
         clear_file(self.pr.config.releaseItemsFilePath)  # clear file for next release content
         # NOTE: user has to manually delete data added when in debug mode
 
+    def trigger_ci(self):
+        if self.pr.repo in self.pr.config.ci_repo_list:
+            print "repo to validate "
+            if self.pr.action in self.pr.config.ci_action_type\
+                    and (self.pr.base_branch in self.pr.config.sensitiveBranches):
+                LOG.debug("******* PR " + self.pr.action + "ed to " + self.pr.base_branch + ", Triggering tests ******")
+                self.github.changeStatus(status="pending", context=self.pr.config.ci_context,
+                                         description=self.pr.config.ci_description,
+                                         details_link="hold on, checks are running")
 
+                job_name = self.pr.config.ci_job_name + "_" + self.pr.repo
+
+                files_modified = ""
+                try:
+                    git_diff_response = self.github.get_files_modified()
+                except PRFilesNotFoundException, e:
+                    git_diff_response = e.pr_response
+                if "message" in git_diff_response:
+                    return git_diff_response            # STOP when no diff files not found
+
+                for item in git_diff_response:
+                    file_path = item["filename"]
+                    file_extension_match = lambda desired_extension: str(file_path).endswith(desired_extension)
+                    if map(file_extension_match, self.pr.config.ci_file_types_list)[0] and item["status"] != "removed":
+                        files_modified += " " + file_path
+
+                if files_modified:
+                    self.jenkins.build_job(job_name, files_modified)
+                else:
+                    error_msg = "No potential diff found to run tests against, matching criteria=%s \n full diff=%s"\
+                                % (self.pr.config.ci_file_types_list, git_diff_response)
+
+                    return {"msg": error_msg}
+            return {"msg": "Skipped tests trigger PR=%s, base_branch=%s, action=%s, actions_types_to_check_against=%s, "
+                           % (self.pr.link_pretty, self.pr.base_branch, self.pr.action, self.pr.config.ci_action_type)}
+        return {"msg": "Skipped tests trigger because not desired repo=%s" %self.pr.repo}
 

@@ -62,7 +62,8 @@ class Checks(object):
     def notify_qa_sign_off(self):
         return self.actor.notify_qa_sign_off()
 
-
+    def run_tests_on_commit(self):
+        return self.actor.trigger_ci()
 
     """ TO DO """
     # def notify_qa_sign_off(self):

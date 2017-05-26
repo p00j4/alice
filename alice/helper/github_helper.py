@@ -52,7 +52,7 @@ class GithubHelper(object):
         self.headers["Accept"] = API_GITHUB_REVIEW_ACCEPT_KEY
         return requests.get(url, headers=self.headers)
 
-    def get_files_requests(self):
+    def get_diff_files(self):
         url = self.pr_api_link + "/files"
         files = ApiManager.get(url, headers=self.headers)
         return files["response"].json()
@@ -61,8 +61,8 @@ class GithubHelper(object):
         return not (isinstance(response, dict) and 'message' in response and response['message'] == "Not Found")
 
     @Retry(PRFilesNotFoundException, max_retries=20)
-    def get_files(self):
-        files_content = self.get_files_requests()
+    def get_files_modified(self):
+        files_content = self.get_diff_files()
         if not self.is_pr_file_content_available(files_content):
             raise PRFilesNotFoundException(files_content)
         return files_content
@@ -72,4 +72,19 @@ class GithubHelper(object):
         comments_end_point = API_GITHUB_ISSUES.format(org=self.pr.config.organisation, repo=self.pr.repo) \
                              + "/" + str(self.pr.number) + "/" + EP_COMMENTS
         return ApiManager.get(comments_end_point, self.headers)
+
+    def changeStatus(self, status, context, description, details_link=""):
+
+        status_url_link = self.pr.status_url
+        payload = {
+            "description": description,
+            "state": status,
+            "target_url": details_link,
+            "context": context
+        }
+        # response = requests.post(status_url_link, json.dumps(payload), headers=self.headers)
+        response = ApiManager.post(url=status_url_link, headers=self.headers, data=payload)
+        LOG.debug("*** modified status to %s for pr=%s"  %( status, self.pr.link_pretty))
+        return response["content"]
+
 
